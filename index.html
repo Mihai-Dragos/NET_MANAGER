@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Net_Manager v4.6 - Terminal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap');
+        
+        body {
+            font-family: 'JetBrains+Mono', monospace;
+            background-color: black;
+            color: #10b981;
+            overflow-x: hidden;
+        }
+
+        /* Scanline Effect */
+        .scanlines {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 4px 100%;
+            pointer-events: none;
+            z-index: 1000;
+            opacity: 0.1;
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #065f46; }
+        ::-webkit-scrollbar-thumb:hover { background: #10b981; }
+
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+        }
+
+        .hidden-view { display: none !important; }
+        
+        /* Smooth transitions for neon changes */
+        .ticket-card {
+            transition: box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-view" class="min-h-screen flex items-center justify-center p-4">
+        <div class="max-w-md w-full bg-zinc-950 border-2 border-emerald-500/50 rounded p-8 relative shadow-[0_0_20px_rgba(16,185,129,0.2)]">
+            <div class="absolute top-0 left-0 w-full h-1 bg-emerald-500 shadow-[0_0_10px_#10b981]"></div>
+            <div class="text-center mb-8">
+                <div class="text-emerald-500 mb-4 inline-block p-4 border border-emerald-500/30 rounded-full animate-pulse">
+                    <i data-lucide="shield" class="w-12 h-12"></i>
+                </div>
+                <h1 class="text-2xl font-bold tracking-widest uppercase">System Auth Required</h1>
+                <p class="text-emerald-800 text-xs mt-2 italic">ENCRYPTION LEVEL: AES-256-GCM</p>
+            </div>
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label class="text-[10px] text-emerald-600 uppercase font-bold mb-1 block">Input Sequence</label>
+                    <div class="flex items-center border border-emerald-500/40 bg-zinc-900 rounded p-1">
+                        <span class="text-emerald-500 px-2">$</span>
+                        <input type="password" id="password-input" class="w-full bg-transparent text-emerald-400 py-2 focus:outline-none placeholder:text-emerald-900" placeholder="********" required>
+                    </div>
+                </div>
+                <div id="login-error" class="hidden-view bg-red-950/30 border border-red-500/50 p-2 text-red-500 text-[10px] text-center font-bold tracking-tighter">
+                    ACCESS DENIED: INVALID CREDENTIALS
+                </div>
+                <button type="submit" class="w-full bg-emerald-950 hover:bg-emerald-900 border border-emerald-500 text-emerald-400 font-bold py-3 rounded transition-all uppercase tracking-widest text-sm">
+                    Initialize Session
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP SCREEN -->
+    <div id="app-view" class="hidden-view min-h-screen flex flex-col md:flex-row relative">
+        <!-- Sidebar -->
+        <aside class="w-full md:w-72 bg-zinc-950 border-r border-emerald-500/20 p-6 flex flex-col z-10">
+            <div class="flex items-center gap-3 mb-12 border-b border-emerald-500/10 pb-4">
+                <i data-lucide="terminal" class="text-emerald-400"></i>
+                <span class="font-black text-emerald-400 text-xl tracking-tighter uppercase">Net_Manager v4.6</span>
+            </div>
+
+            <nav class="flex-1 space-y-4">
+                <p class="text-[10px] text-emerald-800 font-bold uppercase tracking-widest px-4">Master Sort Logic</p>
+                <button onclick="setSortMode('SYSTEM')" id="btn-sort-system" class="w-full flex items-center gap-3 px-4 py-3 rounded border border-transparent text-emerald-800 hover:text-emerald-500 transition-all">
+                    <i data-lucide="layers" class="w-5 h-5"></i> System_Priority
+                </button>
+                <button onclick="setSortMode('MANUAL')" id="btn-sort-manual" class="w-full flex items-center gap-3 px-4 py-3 rounded border border-transparent text-emerald-800 hover:text-emerald-500 transition-all">
+                    <i data-lucide="list-ordered" class="w-5 h-5"></i> Manual_Ordering
+                </button>
+
+                <div class="pt-8">
+                    <p class="text-[10px] text-emerald-800 font-bold uppercase tracking-widest px-4 mb-2">Category Filters</p>
+                    <button onclick="setFilter('All')" id="filter-all" class="w-full flex items-center gap-3 px-4 py-2 text-xs text-emerald-400">
+                        <i data-lucide="database" class="w-4 h-4"></i> Root_Logs
+                    </button>
+                    <button onclick="setFilter('Parts')" id="filter-parts" class="w-full flex items-center gap-3 px-4 py-2 text-xs text-emerald-800">
+                        <i data-lucide="cpu" class="w-4 h-4"></i> Part_Fragments
+                    </button>
+                </div>
+            </nav>
+
+            <button onclick="logout()" class="mt-auto flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-950/20 rounded border border-transparent hover:border-red-500/30 transition-all uppercase text-xs font-bold">
+                <i data-lucide="log-out" class="w-5 h-5"></i> Terminate_Session
+            </button>
+        </aside>
+
+        <!-- Content -->
+        <main class="flex-1 p-4 md:p-10 max-w-7xl mx-auto w-full z-10">
+            <header class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                <div>
+                    <h2 id="view-title" class="text-4xl font-black text-emerald-400 tracking-tighter flex items-center gap-3 uppercase neon-text">
+                        <i data-lucide="activity"></i> SYSTEM_STREAMS
+                    </h2>
+                    <div class="h-1 w-24 bg-emerald-500 mt-2 shadow-[0_0_10px_#10b981]"></div>
+                </div>
+                <button onclick="openModal()" class="bg-emerald-500 hover:bg-emerald-400 text-black px-8 py-3 font-black uppercase tracking-widest text-sm transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] active:scale-95">
+                    Inject_New_Entry
+                </button>
+            </header>
+
+            <div class="bg-zinc-950 p-1 border border-emerald-500/30 mb-8 flex bg-black">
+                <i data-lucide="search" class="m-3 text-emerald-700"></i>
+                <input type="text" id="search-input" oninput="handleSearch(this.value)" placeholder="SCAN_FOR_KEYWORDS..." class="w-full bg-transparent text-emerald-400 py-3 focus:outline-none placeholder:text-emerald-900 uppercase text-xs font-bold">
+            </div>
+
+            <div id="tickets-container" class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <!-- Tickets generated by JS -->
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL -->
+    <div id="modal-overlay" class="hidden-view fixed inset-0 bg-black/90 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+        <div class="bg-zinc-950 w-full max-w-xl border-2 border-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.2)] overflow-hidden flex flex-col relative">
+            <div class="p-6 border-b border-emerald-500/20 flex items-center justify-between bg-black">
+                <h3 class="text-lg font-black text-emerald-500 uppercase tracking-widest">Entry_Injection_System</h3>
+                <button onclick="closeModal()" class="text-emerald-900 hover:text-emerald-500"><i data-lucide="x"></i></button>
+            </div>
+            <form id="ticket-form" class="p-8 space-y-6 overflow-y-auto max-h-[85vh]">
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Ticket_Serial</label>
+                        <input required id="f-ticket" type="text" class="w-full bg-black border border-emerald-500/30 px-4 py-3 text-emerald-400 focus:border-emerald-500 focus:outline-none text-xs uppercase">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">VIN_Serial</label>
+                        <input required id="f-vin" type="text" class="w-full bg-black border border-emerald-500/30 px-4 py-3 text-emerald-400 focus:border-emerald-500 focus:outline-none text-xs uppercase">
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Class_Priority</label>
+                    <select id="f-type" onchange="togglePartField(this.value)" class="w-full bg-black border border-emerald-500/30 px-4 py-3 text-emerald-400 focus:border-emerald-500 focus:outline-none text-xs uppercase appearance-none">
+                        <option>Cabin top level</option>
+                        <option>Engine</option>
+                        <option>Gearbox</option>
+                        <option>Parts over 1000 euros</option>
+                        <option>Parts under 1000 euros</option>
+                        <option>Parts less than 300 euros</option>
+                    </select>
+                </div>
+                <div id="part-field-container" class="hidden-view space-y-1 border border-emerald-500/20 p-4 bg-emerald-500/5">
+                    <label class="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Specify_Hardware_Unit</label>
+                    <input id="f-part" type="text" class="w-full bg-black border border-emerald-500 px-4 py-3 text-emerald-200 focus:outline-none text-xs uppercase">
+                </div>
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Timestamp_Start</label>
+                        <input required id="f-date-req" type="date" class="w-full bg-black border border-emerald-500/30 px-4 py-3 text-emerald-400 focus:outline-none text-xs">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Termination_Date (OPTIONAL)</label>
+                        <input id="f-date-need" type="date" class="w-full bg-black border border-emerald-500/30 px-4 py-3 text-emerald-400 focus:outline-none text-xs">
+                    </div>
+                </div>
+                <div class="pt-8 flex gap-4">
+                    <button type="button" onclick="closeModal()" class="flex-1 px-4 py-3 border border-emerald-900 text-emerald-900 font-black uppercase text-xs">ABORT</button>
+                    <button type="submit" class="flex-1 bg-emerald-500 text-black px-4 py-3 font-black uppercase text-xs shadow-[0_0_20px_rgba(16,185,129,0.3)]">EXECUTE_INJECTION</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const MASTER_PW = "100920";
+        const REQUEST_TYPES = ["Cabin top level", "Engine", "Gearbox", "Parts over 1000 euros", "Parts under 1000 euros", "Parts less than 300 euros"];
+        
+        let state = {
+            isLoggedIn: false,
+            tickets: JSON.parse(localStorage.getItem('hacker_tickets_html')) || [],
+            searchTerm: '',
+            filter: 'All',
+            sortMode: localStorage.getItem('hacker_sort_mode') || 'SYSTEM'
+        };
+
+        function refreshIcons() { lucide.createIcons(); }
+
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const pw = document.getElementById('password-input').value;
+            if (pw === MASTER_PW) {
+                state.isLoggedIn = true;
+                localStorage.setItem('hacker_auth', 'true');
+                render();
+            } else {
+                const err = document.getElementById('login-error');
+                err.classList.remove('hidden-view');
+                setTimeout(() => err.classList.add('hidden-view'), 3000);
+            }
+        });
+
+        function logout() {
+            state.isLoggedIn = false;
+            localStorage.removeItem('hacker_auth');
+            render();
+        }
+
+        function togglePartField(val) {
+            const container = document.getElementById('part-field-container');
+            if (val.toLowerCase().includes('parts')) container.classList.remove('hidden-view');
+            else container.classList.add('hidden-view');
+        }
+
+        document.getElementById('ticket-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newTicket = {
+                id: Date.now(),
+                ticketNumber: document.getElementById('f-ticket').value,
+                chassisNumber: document.getElementById('f-vin').value,
+                requestType: document.getElementById('f-type').value,
+                specificPart: document.getElementById('f-part').value,
+                requestDate: document.getElementById('f-date-req').value,
+                neededByDate: document.getElementById('f-date-need').value,
+                manualPriority: 99
+            };
+            state.tickets.push(newTicket);
+            save();
+            closeModal();
+            render();
+        });
+
+        function deleteTicket(id) {
+            state.tickets = state.tickets.filter(t => t.id !== id);
+            save();
+            render();
+        }
+
+        function updateRank(id, val) {
+            const ticket = state.tickets.find(t => t.id === id);
+            if (ticket) ticket.manualPriority = parseInt(val) || 99;
+            save();
+            if (state.sortMode === 'MANUAL') render();
+        }
+
+        function getToday() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function openModal() { 
+            document.getElementById('modal-overlay').classList.remove('hidden-view'); 
+            // Ensure date is always fresh on open
+            document.getElementById('f-date-req').value = getToday();
+        }
+
+        function closeModal() { 
+            document.getElementById('modal-overlay').classList.add('hidden-view');
+            document.getElementById('ticket-form').reset();
+            togglePartField('');
+        }
+
+        function handleSearch(val) { state.searchTerm = val; render(); }
+        function setFilter(val) { state.filter = val; render(); }
+        function setSortMode(val) { state.sortMode = val; localStorage.setItem('hacker_sort_mode', val); render(); }
+        function save() { localStorage.setItem('hacker_tickets_html', JSON.stringify(state.tickets)); }
+
+        function getPriorityColor(type) {
+            if (type === 'Cabin top level') return { 
+                border: 'rgba(239, 68, 68, 0.5)', 
+                shadow: 'rgba(239, 68, 68, 0.3)', 
+                textClass: 'text-red-500', 
+                borderClass: 'border-red-500', 
+                bgClass: 'bg-red-500/10' 
+            };
+            if (type === 'Engine') return { 
+                border: 'rgba(249, 115, 22, 0.5)', 
+                shadow: 'rgba(249, 115, 22, 0.2)', 
+                textClass: 'text-orange-500', 
+                borderClass: 'border-orange-500', 
+                bgClass: 'bg-orange-500/10' 
+            };
+            if (type === 'Gearbox') return { 
+                border: 'rgba(245, 158, 11, 0.4)', 
+                shadow: 'rgba(245, 158, 11, 0.15)', 
+                textClass: 'text-amber-500', 
+                borderClass: 'border-amber-500', 
+                bgClass: 'bg-amber-500/10' 
+            };
+            if (type.includes('Parts')) return { 
+                border: 'rgba(16, 185, 129, 0.3)', 
+                shadow: 'rgba(16, 185, 129, 0.1)', 
+                textClass: 'text-emerald-400', 
+                borderClass: 'border-emerald-500/30', 
+                bgClass: 'bg-emerald-500/5' 
+            };
+            return { 
+                border: 'rgba(16, 185, 129, 0.1)', 
+                shadow: 'rgba(16, 185, 129, 0.05)', 
+                textClass: 'text-emerald-800', 
+                borderClass: 'border-emerald-500/10', 
+                bgClass: 'bg-transparent' 
+            };
+        }
+
+        function render() {
+            const loginView = document.getElementById('login-view');
+            const appView = document.getElementById('app-view');
+            
+            if (!state.isLoggedIn && localStorage.getItem('hacker_auth') !== 'true') {
+                loginView.classList.remove('hidden-view');
+                appView.classList.add('hidden-view');
+                return;
+            }
+
+            loginView.classList.add('hidden-view');
+            appView.classList.remove('hidden-view');
+
+            document.getElementById('btn-sort-system').className = state.sortMode === 'SYSTEM' ? 'w-full flex items-center gap-3 px-4 py-3 rounded border border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'w-full flex items-center gap-3 px-4 py-3 rounded border border-transparent text-emerald-800 hover:text-emerald-500';
+            document.getElementById('btn-sort-manual').className = state.sortMode === 'MANUAL' ? 'w-full flex items-center gap-3 px-4 py-3 rounded border border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'w-full flex items-center gap-3 px-4 py-3 rounded border border-transparent text-emerald-800 hover:text-emerald-500';
+            document.getElementById('view-title').innerHTML = `<i data-lucide="activity"></i> ${state.sortMode === 'MANUAL' ? 'MANUAL_SEQUENCE' : 'SYSTEM_STREAMS'}`;
+
+            const container = document.getElementById('tickets-container');
+            container.innerHTML = '';
+
+            const filtered = state.tickets
+                .filter(t => {
+                    const matchesSearch = t.ticketNumber.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+                                        t.chassisNumber.toLowerCase().includes(state.searchTerm.toLowerCase()) ||
+                                        t.specificPart.toLowerCase().includes(state.searchTerm.toLowerCase());
+                    if (state.filter === 'All') return matchesSearch;
+                    if (state.filter === 'Parts') return matchesSearch && t.requestType.includes('Parts');
+                    return matchesSearch && t.requestType === state.filter;
+                })
+                .sort((a, b) => {
+                    if (state.sortMode === 'MANUAL') {
+                        if (a.manualPriority !== b.manualPriority) return a.manualPriority - b.manualPriority;
+                        return REQUEST_TYPES.indexOf(a.requestType) - REQUEST_TYPES.indexOf(b.requestType);
+                    } else {
+                        const priA = REQUEST_TYPES.indexOf(a.requestType);
+                        const priB = REQUEST_TYPES.indexOf(b.requestType);
+                        if (priA !== priB) return priA - priB;
+                        return b.id - a.id;
+                    }
+                });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-24 border border-dashed border-emerald-500/20 text-emerald-900 italic uppercase text-xs tracking-widest">No stream detected. Ready for injection.</div>`;
+            }
+
+            filtered.forEach(t => {
+                const styles = getPriorityColor(t.requestType);
+                const card = document.createElement('div');
+                card.className = "ticket-card bg-zinc-950 border p-6 relative group overflow-hidden shadow-[0_0_15px_rgba(16,185,129,0.05)]";
+                card.style.borderColor = styles.border;
+                card.style.boxShadow = `0 0 15px ${styles.shadow}`;
+                
+                card.innerHTML = `
+                    <div class="absolute top-4 right-12 flex items-center gap-2 bg-black border border-emerald-500/20 px-2 py-1 rounded">
+                        <span class="text-[8px] font-bold text-emerald-700 uppercase">Rank:</span>
+                        <input type="number" onchange="updateRank(${t.id}, this.value)" value="${t.manualPriority}" class="w-10 bg-transparent text-emerald-400 text-[10px] font-bold focus:outline-none border-b border-emerald-500/30 text-center">
+                    </div>
+                    <button onclick="deleteTicket(${t.id})" class="absolute top-4 right-4 text-emerald-900 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <div class="flex flex-col h-full">
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="p-3 border ${styles.borderClass} ${styles.textClass} bg-black" style="box-shadow: inset 0 0 10px ${styles.shadow}">
+                                <i data-lucide="lock"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-black text-emerald-800 tracking-widest uppercase">TICKET: ${t.ticketNumber}</span>
+                                    <span class="text-[9px] px-2 py-0.5 font-bold uppercase border ${styles.bgClass} ${styles.borderClass} ${styles.textClass}" style="box-shadow: 0 0 8px ${styles.shadow}">
+                                        ${t.requestType}
+                                    </span>
+                                </div>
+                                <h3 class="text-xl font-black text-emerald-100 tracking-tighter mt-1 uppercase">VIN: ${t.chassisNumber}</h3>
+                            </div>
+                        </div>
+                        ${t.specificPart ? `<div class="bg-black/50 border-l-2 ${styles.borderClass} p-3 mb-4"><p class="${styles.textClass} text-[10px] font-bold uppercase mb-1">Decrypted_Part_Data:</p><p class="text-emerald-200 text-sm font-bold uppercase">${t.specificPart}</p></div>` : ''}
+                        <div class="mt-auto grid grid-cols-2 gap-4 pt-4 border-t border-emerald-500/10">
+                            <div class="flex items-center gap-2 text-[10px] text-emerald-800 uppercase font-bold"><i data-lucide="clock" class="w-3 h-3"></i> <span>LOGGED: ${t.requestDate}</span></div>
+                            <div class="flex items-center gap-2 text-[10px] font-bold uppercase ${t.neededByDate ? 'text-emerald-400' : 'text-emerald-900 italic'}"><i data-lucide="alert-circle" class="w-3 h-3"></i> <span>DEADLINE: ${t.neededByDate || 'UNSPECIFIED'}</span></div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            refreshIcons();
+        }
+
+        window.onload = () => {
+            if (localStorage.getItem('hacker_auth') === 'true') state.isLoggedIn = true;
+            render();
+            document.getElementById('f-date-req').value = getToday();
+        };
+    </script>
+</body>
+</html>
